@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%- typeof title != 'undefined' ? title : 'FullStack Cafe' %></title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans">
+
+    <!-- Navigation Bar -->
+    <nav class="bg-white shadow mb-8">
+        <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <a href="/" class="text-2xl font-bold text-indigo-600 no-underline">FullStack Cafe</a>
+            <div class="flex space-x-6">
+                <% if (typeof user !== 'undefined' && user && (user.role === 'admin' || user.role === 'superAdmin')) { %>
+                    <a href="/admin/dashboard" class="text-indigo-600 font-bold hover:text-indigo-800 no-underline flex items-center gap-1">
+                        <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Admin Panel
+                    </a>
+                    <a href="/admin/orders" class="text-indigo-600 font-bold hover:text-indigo-800 no-underline flex items-center gap-1">
+                        <i data-lucide="chef-hat" class="w-4 h-4"></i> Kitchen
+                    </a>
+                    <a href="/admin/menu" class="text-indigo-600 font-bold hover:text-indigo-800 no-underline flex items-center gap-1">
+                        <i data-lucide="utensils" class="w-4 h-4"></i> Menu
+                    </a>
+                <% } %>
+                <a href="/" class="text-gray-700 hover:text-indigo-600 no-underline flex items-center gap-1">
+                    <i data-lucide="coffee" class="w-4 h-4"></i> Menu
+                </a>
+                <a href="/cart" class="relative text-gray-700 hover:text-indigo-600 no-underline flex items-center">
+                    <i data-lucide="shopping-cart" class="w-6 h-6"></i>
+                    <span id="cart-count" class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
+                </a>
+                <% if (typeof user !== 'undefined' && user) { %>
+                    <a href="/logout" class="text-gray-700 hover:text-indigo-600 no-underline flex items-center gap-1">
+                        <i data-lucide="log-out" class="w-4 h-4"></i> Logout
+                    </a>
+                <% } else { %>
+                    <a href="/login" class="text-gray-700 hover:text-indigo-600 no-underline flex items-center gap-1">
+                        <i data-lucide="log-in" class="w-4 h-4"></i> Login
+                    </a>
+                    <a href="/signup" class="text-gray-700 hover:text-indigo-600 no-underline flex items-center gap-1">
+                        <i data-lucide="user-plus" class="w-4 h-4"></i> Signup
+                    </a>
+                <% } %>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Injection Point -->
+    <div class="container mx-auto px-6">
+        <%- body %>
+    </div>
+
+    <script>
+        // Update Cart Count in Navbar on page load
+        const cart = JSON.parse(localStorage.getItem('cafeCart')) || [];
+        const count = cart.reduce((acc, item) => acc + item.quantity, 0);
+        document.getElementById('cart-count').innerText = count;
+        lucide.createIcons();
+    </script>
+
+</body>
+</html>

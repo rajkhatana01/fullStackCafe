@@ -1,0 +1,93 @@
+<div class="mb-8 flex justify-between items-center">
+  <h1 class="text-3xl font-bold text-gray-800">Admin Dashboard</h1>
+  <a href="/admin/product/new" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition flex items-center gap-2">
+    <i data-lucide="plus-circle" class="w-5 h-5"></i>
+    Add New Item
+  </a>
+</div>
+
+<!-- Orders Section -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-10 overflow-hidden">
+  <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
+    <h2 class="text-xl font-bold text-gray-800">Live Orders</h2>
+  </div>
+  
+  <% if (orders.length === 0) { %>
+    <div class="p-8 text-center text-gray-500">No orders yet.</div>
+  <% } else { %>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse">
+        <thead>
+          <tr class="bg-gray-50 text-gray-600 text-sm uppercase tracking-wider">
+            <th class="px-6 py-3 font-semibold">Order ID</th>
+            <th class="px-6 py-3 font-semibold">Customer</th>
+            <th class="px-6 py-3 font-semibold">Items</th>
+            <th class="px-6 py-3 font-semibold">Total</th>
+            <th class="px-6 py-3 font-semibold">Status</th>
+            <th class="px-6 py-3 font-semibold">Action</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+          <% orders.forEach(order => { %>
+            <tr class="hover:bg-gray-50 transition">
+              <td class="px-6 py-4 text-sm text-gray-500">#<%= order._id.toString().slice(-6) %></td>
+              <td class="px-6 py-4 font-medium text-gray-900"><%= order.user ? order.user.name : 'Unknown' %></td>
+              <td class="px-6 py-4 text-sm text-gray-600">
+                <% order.items.forEach(item => { %>
+                  <div><%= item.quantity %>x <%= item.product ? item.product.name : 'Deleted Item' %></div>
+                <% }) %>
+              </td>
+              <td class="px-6 py-4 font-bold text-indigo-600">₹<%= order.totalAmount %></td>
+              <td class="px-6 py-4">
+                <span class="px-3 py-1 rounded-full text-xs font-semibold
+                  <%= order.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : 
+                      order.status === 'Completed' ? 'bg-green-100 text-green-800' : 
+                      order.status === 'Cancelled' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' %>">
+                  <%= order.status %>
+                </span>
+              </td>
+              <td class="px-6 py-4">
+                <form action="/admin/order/status/<%= order._id %>" method="POST">
+                  <select name="status" onchange="this.form.submit()" class="text-sm border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                    <option value="Pending" <%= order.status === 'Pending' ? 'selected' : '' %>>Pending</option>
+                    <option value="Preparing" <%= order.status === 'Preparing' ? 'selected' : '' %>>Preparing</option>
+                    <option value="Ready" <%= order.status === 'Ready' ? 'selected' : '' %>>Ready</option>
+                    <option value="Completed" <%= order.status === 'Completed' ? 'selected' : '' %>>Completed</option>
+                    <option value="Cancelled" <%= order.status === 'Cancelled' ? 'selected' : '' %>>Cancelled</option>
+                  </select>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<!-- Menu Management Section -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+  <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
+    <h2 class="text-xl font-bold text-gray-800">Menu Management</h2>
+  </div>
+  
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+    <% products.forEach(product => { %>
+      <div class="flex items-center bg-white border border-gray-100 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <img src="<%= product.image || 'https://placehold.co/100' %>" class="w-16 h-16 rounded-lg object-cover mr-4">
+        <div class="flex-grow">
+          <h3 class="font-bold text-gray-800"><%= product.name %></h3>
+          <p class="text-sm text-gray-500">₹<%= product.price %> • <%= product.category %></p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <a href="/admin/product/edit/<%= product._id %>" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center gap-1">
+            <i data-lucide="edit-2" class="w-4 h-4"></i> Edit
+          </a>
+          <a href="/admin/product/delete/<%= product._id %>" class="text-red-600 hover:text-red-800 text-sm font-medium flex items-center gap-1" onclick="return confirm('Are you sure?')">
+            <i data-lucide="trash-2" class="w-4 h-4"></i> Delete
+          </a>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+</div>
