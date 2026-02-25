@@ -23,7 +23,7 @@ exports.signupUser = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      profilePic: req.file ? `/uploads/${req.file.filename}` : null
+      profilePic: req.file ? `/uploads/${req.file.filename}` : undefined
     });
 
     res.redirect("/login");

@@ -29,7 +29,7 @@ exports.getOrders = async (req, res) => {
     // Fetch active orders (not completed), sorted by pickup time
     const orders = await Order.find({ status: { $ne: "Completed" } })
       .populate("items.product")
-      .sort({ pickupTime: 1 });
+      .sort({ createdAt: 1 }); // Oldest orders first
 
     res.render("admin/orders", { user: req.user, orders, title: "Kitchen Queue" });
   } catch (err) {
@@ -95,7 +95,12 @@ exports.deleteProduct = async (req, res) => {
 exports.updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    await Order.findByIdAndUpdate(req.params.id, { status });
+    const order = await Order.findById(req.params.id);
+
+    if (order && order.status !== "Cancelled") {
+      order.status = status;
+      await order.save();
+    }
     // In a real app, you might emit a socket event here for real-time notification
     res.redirect("/admin/dashboard");
   } catch (err) {
@@ -107,7 +112,12 @@ exports.updateOrderStatus = async (req, res) => {
 exports.updateOrderStatusForm = async (req, res) => {
   try {
     const { orderId, status } = req.body;
-    await Order.findByIdAndUpdate(orderId, { status });
+    const order = await Order.findById(orderId);
+
+    if (order && order.status !== "Cancelled") {
+      order.status = status;
+      await order.save();
+    }
     res.redirect("/admin/orders");
   } catch (err) {
     console.error(err);
@@ -123,10 +133,10 @@ exports.toggleStock = async (req, res) => {
       product.isOutOfStock = !product.isOutOfStock;
       await product.save();
     }
-    res.redirect("/admin/menu");
+    res.redirect(req.get('Referer') || '/admin/dashboard');
   } catch (err) {
     console.error(err);
-    res.redirect("/admin/menu");
+    res.redirect(req.get('Referer') || '/admin/dashboard');
   }
 };
 

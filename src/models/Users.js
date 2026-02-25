@@ -25,8 +25,8 @@ const userSchema = new mongoose.Schema({
   
   profilePic: {
     type: String,
-    default: null,
-    required: true
+    default: "https://ui-avatars.com/api/?background=random&color=fff",
+    required: false
   },
 
   isActive: {
