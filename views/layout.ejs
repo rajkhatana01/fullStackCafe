@@ -145,10 +145,10 @@
     </script>
 
     <!-- Trigger Server Flash Toasts on Page Load -->
-    <% if (success_msg && success_msg.length > 0) { %>
+    <% if (typeof success_msg !== 'undefined' && success_msg && success_msg.length > 0) { %>
         <script> document.addEventListener("DOMContentLoaded", () => showToast("<%= success_msg %>", "success")); </script>
     <% } %>
-    <% if (error_msg && error_msg.length > 0) { %>
+    <% if (typeof error_msg !== 'undefined' && error_msg && error_msg.length > 0) { %>
         <script> document.addEventListener("DOMContentLoaded", () => showToast("<%= error_msg %>", "error")); </script>
     <% } %>
 

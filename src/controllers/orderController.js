@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Order = require("../models/Order");
 const Product = require("../models/Product");
 const Cart = require("../models/Cart");
@@ -7,6 +8,11 @@ exports.addToCart = async (req, res) => {
   try {
     const { productId } = req.body;
     if (!productId) return res.status(400).json({ success: false, message: "Product ID required" });
+    
+    // Validate that the productId is a valid MongoDB ObjectId to prevent CastError crashes
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return res.status(400).json({ success: false, message: "Invalid product format" });
+    }
     const userId = req.user.id;
 
     const product = await Product.findById(productId);
@@ -18,7 +24,7 @@ exports.addToCart = async (req, res) => {
       cart = await Cart.create({ user: userId, items: [] });
     }
 
-    const itemIndex = cart.items.findIndex(p => p.product.toString() === productId);
+    const itemIndex = cart.items.findIndex(p => p.product && p.product.toString() === productId);
     if (itemIndex > -1) {
       cart.items[itemIndex].quantity += 1;
     } else {
@@ -110,12 +116,15 @@ exports.removeFromCart = async (req, res) => {
     const { productId } = req.body;
     const userId = req.user.id;
 
-    const cart = await Cart.findOne({ user: userId });
+    // Use MongoDB's atomic $pull operator to cleanly remove the item at the database level.
+    // This prevents race conditions and is significantly faster than filtering in memory.
+    const cart = await Cart.findOneAndUpdate(
+      { user: userId },
+      { $pull: { items: { product: productId } } },
+      { new: true } // Return the updated document
+    );
+
     if (cart) {
-      // Filter out the item to remove it
-      cart.items = cart.items.filter(item => item.product.toString() !== productId);
-      await cart.save();
-      
       const cartCount = cart.items.reduce((acc, item) => acc + item.quantity, 0);
       return res.json({ success: true, message: "Item removed", cartCount });
     }
