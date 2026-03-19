@@ -57,11 +57,34 @@
 
     <!-- Main Content Injection Point -->
     <div class="container mx-auto px-6">
+        
         <%- body %>
     </div>
 
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none"></div>
+
     <script>
         lucide.createIcons();
+
+        // Dynamic Toast Notification Function
+        window.showToast = function(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `transform transition-all duration-300 translate-y-10 opacity-0 px-6 py-4 rounded-2xl shadow-2xl text-white font-medium flex items-center gap-3 pointer-events-auto ${type === 'success' ? 'bg-gray-900' : 'bg-red-600'}`;
+            toast.innerHTML = `<i data-lucide="${type === 'success' ? 'check-circle' : 'alert-circle'}" class="w-5 h-5"></i><span>${message}</span>`;
+            
+            document.getElementById('toast-container').appendChild(toast);
+            lucide.createIcons();
+
+            // Slide in
+            setTimeout(() => toast.classList.remove('translate-y-10', 'opacity-0'), 10);
+
+            // Slide out and remove after 3 seconds
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        };
 
         // Global function to add items to cart (Server-Side)
         async function addToCart(productId) {
@@ -74,13 +97,60 @@
                 const data = await response.json();
                 if (data.success) {
                     document.getElementById('cart-count').innerText = data.cartCount;
+                    showToast(data.message || "Added to cart!", 'success');
                 } else {
                     if(data.message === 'Login required') window.location.href = '/login';
-                    else alert(data.message); // Show error (e.g., "Product is out of stock")
+                    else showToast(data.message, 'error'); 
                 }
             } catch (error) { console.error('Error adding to cart:', error); }
         }
+
+        // Service Worker & Push Notifications Setup
+        const publicVapidKey = '<%= typeof vapidPublicKey !== "undefined" ? vapidPublicKey : "" %>';
+
+        if ('serviceWorker' in navigator && publicVapidKey) {
+            window.addEventListener('load', async () => {
+                try {
+                    const register = await navigator.serviceWorker.register('/service-worker.js');
+                    
+                    // If user is logged in, ask for notification permission
+                    <% if (typeof user !== "undefined" && user) { %>
+                        const subscription = await register.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+                        });
+
+                        // Send subscription to our server
+                        await fetch('/subscribe', {
+                            method: 'POST',
+                            body: JSON.stringify(subscription),
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                    <% } %>
+                } catch (err) {
+                    console.error('Service Worker Error:', err);
+                }
+            });
+        }
+
+        // Utility function to convert VAPID key format for the browser
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
+            return outputArray;
+        }
     </script>
+
+    <!-- Trigger Server Flash Toasts on Page Load -->
+    <% if (success_msg && success_msg.length > 0) { %>
+        <script> document.addEventListener("DOMContentLoaded", () => showToast("<%= success_msg %>", "success")); </script>
+    <% } %>
+    <% if (error_msg && error_msg.length > 0) { %>
+        <script> document.addEventListener("DOMContentLoaded", () => showToast("<%= error_msg %>", "error")); </script>
+    <% } %>
 
 </body>
 </html>

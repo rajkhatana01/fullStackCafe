@@ -8,8 +8,19 @@
 
 <!-- Orders Section -->
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-10 overflow-hidden">
-  <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
+  <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
     <h2 class="text-xl font-bold text-gray-800">Live Orders</h2>
+    <form method="GET" action="/admin/dashboard" class="flex items-center gap-2">
+      <label for="statusFilter" class="text-sm font-medium text-gray-700">Filter:</label>
+      <select name="status" id="statusFilter" onchange="this.form.submit()" class="text-sm border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 py-1 pl-3 pr-8">
+        <option value="All" <%= typeof statusFilter !== 'undefined' && statusFilter === 'All' ? 'selected' : '' %>>All</option>
+        <option value="Pending" <%= typeof statusFilter !== 'undefined' && statusFilter === 'Pending' ? 'selected' : '' %>>Pending</option>
+        <option value="Preparing" <%= typeof statusFilter !== 'undefined' && statusFilter === 'Preparing' ? 'selected' : '' %>>Preparing</option>
+        <option value="Ready" <%= typeof statusFilter !== 'undefined' && statusFilter === 'Ready' ? 'selected' : '' %>>Ready</option>
+        <option value="Completed" <%= typeof statusFilter !== 'undefined' && statusFilter === 'Completed' ? 'selected' : '' %>>Completed</option>
+        <option value="Cancelled" <%= typeof statusFilter !== 'undefined' && statusFilter === 'Cancelled' ? 'selected' : '' %>>Cancelled</option>
+      </select>
+    </form>
   </div>
   
   <% if (orders.length === 0) { %>
@@ -61,6 +72,36 @@
           <% }) %>
         </tbody>
       </table>
+      
+      <!-- Pagination Controls -->
+      <% if (typeof totalPages !== 'undefined' && totalPages > 1) { %>
+        <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+          <p class="text-sm text-gray-700">
+            Showing page <span class="font-bold text-gray-900"><%= currentPage %></span> of <span class="font-bold text-gray-900"><%= totalPages %></span>
+          </p>
+          <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+            <% if (currentPage > 1) { %>
+              <a href="?page=<%= currentPage - 1 %>&status=<%= statusFilter %>" class="relative inline-flex items-center px-4 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                Previous
+              </a>
+            <% } else { %>
+              <span class="relative inline-flex items-center px-4 py-2 rounded-l-md border border-gray-300 bg-gray-100 text-sm font-medium text-gray-400 cursor-not-allowed">
+                Previous
+              </span>
+            <% } %>
+            
+            <% if (currentPage < totalPages) { %>
+              <a href="?page=<%= currentPage + 1 %>&status=<%= statusFilter %>" class="relative inline-flex items-center px-4 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                Next
+              </a>
+            <% } else { %>
+              <span class="relative inline-flex items-center px-4 py-2 rounded-r-md border border-gray-300 bg-gray-100 text-sm font-medium text-gray-400 cursor-not-allowed">
+                Next
+              </span>
+            <% } %>
+          </nav>
+        </div>
+      <% } %>
     </div>
   <% } %>
 </div>

@@ -13,85 +13,184 @@
   <div class="absolute bottom-0 right-0 w-40 h-40 bg-white opacity-10 rounded-full translate-x-1/3 translate-y-1/3"></div>
 </div>
 
+<!-- Live Search Bar -->
+<form action="/" method="GET" id="searchForm" class="max-w-2xl mx-auto mb-10 relative z-10 flex gap-3">
+  <div class="relative flex-grow">
+    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"> <i data-lucide="search" class="w-5 h-5 text-gray-400"></i> </div>
+    <input type="search" name="search" id="searchInput" placeholder="Search for your favorite dish..." 
+           value="<%= typeof searchTerm !== 'undefined' ? searchTerm : '' %>"
+           class="w-full pl-12 pr-4 py-3 rounded-2xl border border-gray-200 shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none text-gray-700 bg-white">
+    
+    <!-- Hidden input to preserve category filter when searching -->
+    <input type="hidden" name="category" id="categoryInput" value="<%= typeof currentCategory !== 'undefined' ? currentCategory : 'All' %>">
+  </div>
+  <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-semibold shadow-sm transition-all flex items-center gap-2">
+    Search
+  </button>
+</form>
+
 <% 
-  const categories = ["Breakfast", "Lunch", "Dinner", "Fast Food", "Desserts", "Drinks"];
-  const allProducts = typeof products !== 'undefined' ? products : [];
+  const categories = ["All", "Breakfast", "Lunch", "Dinner", "Fast Food", "Desserts", "Drinks"];
+  const activeCategory = typeof currentCategory !== 'undefined' ? currentCategory : 'All';
 %>
 
 <!-- Category Navigation Pills -->
-<div class="flex flex-wrap justify-center gap-3 mb-12 sticky top-4 z-20 bg-gray-50/95 py-2 backdrop-blur-sm">
+<div class="flex flex-wrap justify-center gap-3 mb-12 sticky top-0 z-20 bg-gray-50 py-4 shadow-sm border-b border-gray-200" id="categoryPills">
   <% categories.forEach(cat => { %>
-    <a href="#<%= cat.replace(/\s+/g, '-').toLowerCase() %>" 
-       class="px-5 py-2 bg-white text-gray-700 rounded-full shadow-sm border border-gray-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all text-sm font-semibold no-underline">
+    <% const linkUrl = cat === 'All' ? '/?category=All' : `/?category=${cat}&search=${typeof searchTerm !== 'undefined' ? searchTerm : ''}`; %>
+    <a href="<%= linkUrl %>" 
+       class="px-5 py-2 rounded-full shadow-sm border transition-all text-sm font-semibold no-underline <%= activeCategory === cat ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200' %>">
       <%= cat %>
     </a>
   <% }) %>
 </div>
 
-<!-- Menu Sections -->
-<div class="space-y-16">
-  <% categories.forEach(category => { %>
-    <% 
-       const categoryProducts = allProducts.filter(p => p.category && p.category.toLowerCase() === category.toLowerCase()); 
-       const sectionId = category.replace(/\s+/g, '-').toLowerCase();
-    %>
-
-    <% if (categoryProducts.length > 0) { %>
-      <div id="<%= sectionId %>" class="scroll-mt-24">
-        <div class="flex items-center mb-8">
-          <h2 class="text-3xl font-bold text-gray-800 mr-4"><%= category %></h2>
-          <div class="h-1 flex-grow bg-gray-200 rounded-full"></div>
-        </div>
-        
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-          <% categoryProducts.forEach(product => { %>
-            <div class="group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col h-full transform hover:-translate-y-1">
-              
-              <!-- Image Container -->
-              <div class="relative h-56 overflow-hidden">
-                <img src="<%= product.image || 'https://placehold.co/400x300?text=No+Image' %>" 
-                     alt="<%= product.name %>" 
-                     class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                <div class="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm">
-                  <span class="text-indigo-700 font-bold text-sm">₹<%= product.price %></span>
-                </div>
-                <% if (product.isOutOfStock) { %>
-                  <div class="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-[2px]">
-                    <span class="bg-red-600 text-white px-4 py-1 rounded-full font-bold text-sm shadow-lg transform -rotate-12 border-2 border-white">OUT OF STOCK</span>
-                  </div>
-                <% } %>
-              </div>
-
-              <div class="p-5 flex flex-col flex-grow">
-                <h3 class="font-bold text-gray-800 text-xl mb-2 group-hover:text-indigo-600 transition-colors"><%= product.name %></h3>
-                
-                <p class="text-gray-500 text-sm mb-6 flex-grow leading-relaxed line-clamp-3">
-                  <%= product.description %>
-                </p>
-
-                <% if (typeof user !== 'undefined' && user) { %>
-                  <% if (product.isOutOfStock) { %>
-                    <button disabled class="w-full bg-gray-300 text-gray-500 py-3 rounded-xl text-sm font-semibold cursor-not-allowed flex items-center justify-center gap-2">
-                      <i data-lucide="ban" class="w-5 h-5"></i>
-                      Unavailable
-                    </button>
-                  <% } else { %>
-                    <button onclick="addToCart('<%= product._id %>')" 
-                            class="w-full bg-gray-900 text-white py-3 rounded-xl text-sm font-semibold hover:bg-indigo-600 active:scale-95 transition-all shadow-lg shadow-gray-200 hover:shadow-indigo-200 flex items-center justify-center gap-2">
-                      <i data-lucide="shopping-bag" class="w-5 h-5"></i>
-                      Add to Order
-                    </button>
-                  <% } %>
-                <% } else { %>
-                   <a href="/login" class="block text-center w-full border border-gray-200 text-gray-600 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
-                    Login to Add
-                  </a>
-                <% } %>
-              </div>
+<!-- Unified Menu Grid -->
+<div class="category-section mb-16">
+  <% if (typeof products !== 'undefined' && products.length > 0) { %>
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+      <% products.forEach(product => { %>
+        <div class="product-card group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col h-full transform hover:-translate-y-1" data-name="<%= product.name.toLowerCase() %>">
+          
+          <!-- Image Container -->
+          <div class="relative h-56 overflow-hidden">
+            <img src="<%= product.image || 'https://placehold.co/400x300?text=No+Image' %>" 
+                 alt="<%= product.name %>" 
+                 class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+            <div class="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm">
+              <span class="text-indigo-700 font-bold text-sm">₹<%= product.price %></span>
             </div>
-          <% }) %>
+            <% if (product.isOutOfStock) { %>
+              <div class="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-[2px]">
+                <span class="bg-red-600 text-white px-4 py-1 rounded-full font-bold text-sm shadow-lg transform -rotate-12 border-2 border-white">OUT OF STOCK</span>
+              </div>
+            <% } %>
+          </div>
+
+          <div class="p-5 flex flex-col flex-grow">
+            <h3 class="font-bold text-gray-800 text-xl mb-2 group-hover:text-indigo-600 transition-colors"><%= product.name %></h3>
+            
+            <p class="text-gray-500 text-sm mb-6 flex-grow leading-relaxed line-clamp-3">
+              <%= product.description %>
+            </p>
+
+            <% if (typeof user !== 'undefined' && user) { %>
+              <% if (product.isOutOfStock) { %>
+                <button disabled class="w-full bg-gray-300 text-gray-500 py-3 rounded-xl text-sm font-semibold cursor-not-allowed flex items-center justify-center gap-2">
+                  <i data-lucide="ban" class="w-5 h-5"></i>
+                  Unavailable
+                </button>
+              <% } else { %>
+                <button onclick="addToCart('<%= product._id %>')" 
+                        class="w-full bg-gray-900 text-white py-3 rounded-xl text-sm font-semibold hover:bg-indigo-600 active:scale-95 transition-all shadow-lg shadow-gray-200 hover:shadow-indigo-200 flex items-center justify-center gap-2">
+                  <i data-lucide="shopping-bag" class="w-5 h-5"></i>
+                  Add to Order
+                </button>
+              <% } %>
+            <% } else { %>
+               <a href="/login" class="block text-center w-full border border-gray-200 text-gray-600 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
+                Login to Add
+              </a>
+            <% } %>
+          </div>
         </div>
-      </div>
-    <% } %>
-  <% }) %>
+      <% }) %>
+    </div>
+  <% } else { %>
+    <div class="text-center py-20 text-gray-500">
+      <i data-lucide="package-open" class="w-16 h-16 mx-auto mb-4 text-gray-300"></i>
+      <p class="text-lg">No dishes found in this category.</p>
+    </div>
+  <% } %>
 </div>
+
+<div id="paginationWrapper">
+<!-- Pagination Controls -->
+<% if (typeof totalPages !== 'undefined' && totalPages > 1) { %>
+  <div class="mt-12 mb-8 flex justify-center">
+    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+      <% if (currentPage > 1) { %>
+        <a href="?page=<%= currentPage - 1 %>&category=<%= typeof currentCategory !== 'undefined' ? currentCategory : 'All' %>&search=<%= typeof searchTerm !== 'undefined' ? searchTerm : '' %>" class="relative inline-flex items-center px-4 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+          Previous
+        </a>
+      <% } else { %>
+        <span class="relative inline-flex items-center px-4 py-2 rounded-l-md border border-gray-300 bg-gray-100 text-sm font-medium text-gray-400 cursor-not-allowed">
+          Previous
+        </span>
+      <% } %>
+      
+      <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+        Page <%= currentPage %> of <%= totalPages %>
+      </span>
+      
+      <% if (currentPage < totalPages) { %>
+        <a href="?page=<%= currentPage + 1 %>&category=<%= typeof currentCategory !== 'undefined' ? currentCategory : 'All' %>&search=<%= typeof searchTerm !== 'undefined' ? searchTerm : '' %>" class="relative inline-flex items-center px-4 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+          Next
+        </a>
+      <% } else { %>
+        <span class="relative inline-flex items-center px-4 py-2 rounded-r-md border border-gray-300 bg-gray-100 text-sm font-medium text-gray-400 cursor-not-allowed">
+          Next
+        </span>
+      <% } %>
+    </nav>
+  </div>
+<% } %>
+</div>
+
+<!-- Live Search AJAX Script -->
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('searchInput');
+    const searchForm = document.getElementById('searchForm');
+    let debounceTimer;
+
+    const performSearch = async (url) => {
+      try {
+        const response = await fetch(url);
+        const html = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        // Update the food items grid and pagination seamlessly
+        document.querySelector('.category-section').innerHTML = doc.querySelector('.category-section').innerHTML;
+        
+        const currentPagination = document.getElementById('paginationWrapper');
+        const newPagination = doc.getElementById('paginationWrapper');
+        if (currentPagination && newPagination) currentPagination.innerHTML = newPagination.innerHTML;
+
+        const currentPills = document.getElementById('categoryPills');
+        const newPills = doc.getElementById('categoryPills');
+        if (currentPills && newPills) currentPills.innerHTML = newPills.innerHTML;
+
+        // Update URL bar silently so back/refresh works
+        window.history.pushState({}, '', url);
+        if (typeof lucide !== 'undefined') lucide.createIcons(); // Re-render Lucide icons
+      } catch (err) {
+        console.error('Search error:', err);
+      }
+    };
+
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          const category = document.getElementById('categoryInput').value;
+          performSearch(`/?category=${encodeURIComponent(category)}&search=${encodeURIComponent(e.target.value)}`);
+        }, 300); // Wait 300ms after user stops typing to prevent spamming server
+      });
+    }
+
+    if (searchForm) {
+      searchForm.addEventListener('submit', (e) => {
+        e.preventDefault(); // Stop normal reload and do instant search instead
+        const category = document.getElementById('categoryInput').value;
+        performSearch(`/?category=${encodeURIComponent(category)}&search=${encodeURIComponent(searchInput.value)}`);
+      });
+    }
+
+    // Fix: Allow browser "Back/Forward" buttons to work with our dynamic AJAX URL changes
+    window.addEventListener('popstate', () => {
+      window.location.reload(); 
+    });
+  });
+</script>

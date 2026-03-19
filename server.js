@@ -30,11 +30,18 @@ app.use(async (req, res, next) => {
   res.locals.title = "fullStackCafe";
   res.locals.user = null;
   res.locals.cartCount = 0;
+  res.locals.vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
+
+  // Custom Cookie-based Flash Messages
+  res.locals.error_msg = req.cookies.error_msg || "";
+  res.locals.success_msg = req.cookies.success_msg || "";
+  if (req.cookies.error_msg) res.clearCookie("error_msg");
+  if (req.cookies.success_msg) res.clearCookie("success_msg");
 
   const token = req.cookies.token;
   if (token) {
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
       req.user = decoded;
       res.locals.user = decoded;
 
@@ -53,16 +60,6 @@ app.use(async (req, res, next) => {
 app.use(authRoutes);
 app.use(adminRoutes);
 app.use(orderRoutes);
-
-app.get("/dashboard", authMiddleware, async (req, res) => {
-  try {
-    const products = await Product.find();
-    res.render("dashboard", { user: req.user, products });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Error fetching menu");
-  }
-});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () =>

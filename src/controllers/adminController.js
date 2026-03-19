@@ -4,17 +4,35 @@ const Order = require("../models/Order");
 // Render Admin Dashboard
 exports.getDashboard = async (req, res) => {
   try {
-    const products = await Product.find();
-    // Fetch orders and populate user details and product details
-    const orders = await Order.find()
+    const products = await Product.find().limit(6); // Limit to prevent performance issues
+
+    // 1. Setup Pagination & Filtering Variables
+    let page = parseInt(req.query.page) || 1;
+    if (page < 1) page = 1; // Prevent Mongoose crash
+    const limit = 10; // Number of orders per page
+    const skip = (page - 1) * limit;
+    
+    const statusFilter = req.query.status || 'All';
+    const orderQuery = statusFilter !== 'All' ? { status: statusFilter } : {};
+
+    // 2. Fetch Total Count and Paginated Orders
+    const totalOrders = await Order.countDocuments(orderQuery);
+    const totalPages = Math.ceil(totalOrders / limit);
+
+    const orders = await Order.find(orderQuery)
       .populate("user", "name email")
       .populate("items.product")
-      .sort({ createdAt: -1 }); // Newest first
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
     res.render("admin/dashboard", { 
       user: req.user, 
       products, 
       orders,
+      currentPage: page,
+      totalPages,
+      statusFilter,
       title: "Admin Dashboard" 
     });
   } catch (err) {

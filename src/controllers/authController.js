@@ -15,7 +15,10 @@ exports.signupUser = async (req, res) => {
     const { name, email, password } = req.body;
 
     const existingUser = await User.findOne({ email });
-    if (existingUser) return res.send("Email already registered");
+    if (existingUser) {
+      res.cookie("error_msg", "Email already registered. Please login.");
+      return res.redirect("/signup");
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -26,11 +29,13 @@ exports.signupUser = async (req, res) => {
       profilePic: req.file ? `/uploads/${req.file.filename}` : undefined
     });
 
+    res.cookie("success_msg", "Registration successful! You can now log in.");
     res.redirect("/login");
 
   } catch (err) {
     console.error(err);
-    res.send("Signup error");
+    res.cookie("error_msg", "An error occurred during signup.");
+    res.redirect("/signup");
   }
 };
 
@@ -40,14 +45,20 @@ exports.loginUser = async (req, res) => {
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
-    if (!user) return res.send("User not found");
+    if (!user) {
+      res.cookie("error_msg", "User not found. Please check your email.");
+      return res.redirect("/login");
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.send("Invalid credentials");
+    if (!isMatch) {
+      res.cookie("error_msg", "Invalid credentials. Please try again.");
+      return res.redirect("/login");
+    }
 
     const token = jwt.sign(
       { id: user._id, name: user.name, role: user.role, profilePic: user.profilePic },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || "fallback_secret",
       { expiresIn: "1d" }
     );
 
@@ -64,7 +75,8 @@ exports.loginUser = async (req, res) => {
 
   } catch (err) {
     console.error(err);
-    res.send("Login error");
+    res.cookie("error_msg", "An error occurred during login.");
+    res.redirect("/login");
   }
 };
 
