@@ -62,8 +62,9 @@ exports.loginUser = async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    res.cookie("token", token, { httpOnly: true,
-      secure: false,     // true when using HTTPS
+    res.cookie("token", token, { 
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // True on Render, false on Localhost
       sameSite: "strict"
     });
 
