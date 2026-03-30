@@ -24,12 +24,12 @@ router.get("/", optionalAuth, async (req, res) => {
         // Escape searchTerm to prevent ReDoS attacks and invalid regex crashes
         if (searchTerm) query.name = { $regex: searchTerm.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'), $options: 'i' }; 
 
-        // Count and fetch based on the final query
-        const totalProducts = await Product.countDocuments(query);
+        // Optimize: Run count and fetch concurrently
+        const [totalProducts, products] = await Promise.all([
+            Product.countDocuments(query),
+            Product.find(query).skip(skip).limit(limit).lean()
+        ]);
         const totalPages = Math.ceil(totalProducts / limit);
-
-        // Fetch paginated products from the database
-        const products = await Product.find(query).skip(skip).limit(limit);
         
         // Render dashboard with pagination data
         res.render('dashboard', { 

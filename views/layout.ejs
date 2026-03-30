@@ -26,19 +26,20 @@
                     <a href="/admin/menu" class="text-indigo-600 font-bold hover:text-indigo-800 no-underline flex items-center gap-1">
                         <i data-lucide="utensils" class="w-4 h-4"></i> Menu
                     </a>
-                <% } %>
-                <a href="/" class="text-gray-700 hover:text-indigo-600 no-underline flex items-center gap-1">
-                    <i data-lucide="coffee" class="w-4 h-4"></i> Menu
-                </a>
-                <% if (typeof user !== 'undefined' && user) { %>
-                    <a href="/orders" class="text-gray-700 hover:text-indigo-600 no-underline flex items-center gap-1">
-                        <i data-lucide="package" class="w-4 h-4"></i> My Orders
+                <% } else { %>
+                    <a href="/" class="text-gray-700 hover:text-indigo-600 no-underline flex items-center gap-1">
+                        <i data-lucide="coffee" class="w-4 h-4"></i> Menu
+                    </a>
+                    <% if (typeof user !== 'undefined' && user) { %>
+                        <a href="/orders" class="text-gray-700 hover:text-indigo-600 no-underline flex items-center gap-1">
+                            <i data-lucide="package" class="w-4 h-4"></i> My Orders
+                        </a>
+                    <% } %>
+                    <a href="/cart" class="relative text-gray-700 hover:text-indigo-600 no-underline flex items-center">
+                        <i data-lucide="shopping-cart" class="w-6 h-6"></i>
+                        <span id="cart-count" class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"><%= typeof cartCount !== 'undefined' ? cartCount : 0 %></span>
                     </a>
                 <% } %>
-                <a href="/cart" class="relative text-gray-700 hover:text-indigo-600 no-underline flex items-center">
-                    <i data-lucide="shopping-cart" class="w-6 h-6"></i>
-                    <span id="cart-count" class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"><%= typeof cartCount !== 'undefined' ? cartCount : 0 %></span>
-                </a>
                 <% if (typeof user !== 'undefined' && user) { %>
                     <a href="/logout" class="text-gray-700 hover:text-indigo-600 no-underline flex items-center gap-1">
                         <i data-lucide="log-out" class="w-4 h-4"></i> Logout

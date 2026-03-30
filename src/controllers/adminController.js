@@ -1,11 +1,11 @@
 const Product = require("../models/Product");
 const Order = require("../models/Order");
+const PushSubscription = require("../models/PushSubscription");
+const webpush = require("web-push");
 
 // Render Admin Dashboard
 exports.getDashboard = async (req, res) => {
   try {
-    const products = await Product.find().limit(6); // Limit to prevent performance issues
-
     // 1. Setup Pagination & Filtering Variables
     let page = parseInt(req.query.page) || 1;
     if (page < 1) page = 1; // Prevent Mongoose crash
@@ -16,15 +16,19 @@ exports.getDashboard = async (req, res) => {
     const orderQuery = statusFilter !== 'All' ? { status: statusFilter } : {};
 
     // 2. Fetch Total Count and Paginated Orders
-    const totalOrders = await Order.countDocuments(orderQuery);
+    // Optimize: Run all independent queries simultaneously
+    const [products, totalOrders, orders] = await Promise.all([
+      Product.find().lean(),
+      Order.countDocuments(orderQuery),
+      Order.find(orderQuery)
+        .populate("user", "name email")
+        .populate("items.product", "name price")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+    ]);
     const totalPages = Math.ceil(totalOrders / limit);
-
-    const orders = await Order.find(orderQuery)
-      .populate("user", "name email")
-      .populate("items.product")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
 
     res.render("admin/dashboard", { 
       user: req.user, 
@@ -46,8 +50,9 @@ exports.getOrders = async (req, res) => {
   try {
     // Fetch active orders (not completed), sorted by pickup time
     const orders = await Order.find({ status: { $ne: "Completed" } })
-      .populate("items.product")
-      .sort({ createdAt: 1 }); // Oldest orders first
+      .populate("items.product", "name price")
+      .sort({ createdAt: 1 }) // Oldest orders first
+      .lean();
 
     res.render("admin/orders", { user: req.user, orders, title: "Kitchen Queue" });
   } catch (err) {
@@ -59,7 +64,7 @@ exports.getOrders = async (req, res) => {
 // Render Menu Management
 exports.getMenu = async (req, res) => {
   try {
-    const menuItems = await Product.find();
+    const menuItems = await Product.find().lean();
     res.render("admin/menu", { user: req.user, menuItems, title: "Menu Management" });
   } catch (err) {
     console.error(err);
@@ -69,11 +74,16 @@ exports.getMenu = async (req, res) => {
 
 // Render Add/Edit Product Form
 exports.getProductForm = async (req, res) => {
-  let product = null;
-  if (req.params.id) {
-    product = await Product.findById(req.params.id);
+  try {
+    let product = null;
+    if (req.params.id) {
+      product = await Product.findById(req.params.id).lean();
+    }
+    res.render("admin/product_form", { user: req.user, product, title: product ? "Edit Product" : "Add Product" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error fetching product details");
   }
-  res.render("admin/product_form", { user: req.user, product, title: product ? "Edit Product" : "Add Product" });
 };
 
 // Handle Add/Edit Product Logic
@@ -118,8 +128,21 @@ exports.updateOrderStatus = async (req, res) => {
     if (order && order.status !== "Cancelled") {
       order.status = status;
       await order.save();
+
+      // Send Web Push Notification to the user
+      const subRecord = await PushSubscription.findOne({ user: order.user }).lean();
+      if (subRecord) {
+        const payload = JSON.stringify({
+          title: "Order Update",
+          body: `Your order status is now: ${status}`
+        });
+        try {
+          await webpush.sendNotification(subRecord.subscription, payload);
+        } catch (pushErr) {
+          console.error("Push Notification Error:", pushErr);
+        }
+      }
     }
-    // In a real app, you might emit a socket event here for real-time notification
     res.redirect("/admin/dashboard");
   } catch (err) {
     res.send("Error updating order");
@@ -135,6 +158,20 @@ exports.updateOrderStatusForm = async (req, res) => {
     if (order && order.status !== "Cancelled") {
       order.status = status;
       await order.save();
+
+      // Send Web Push Notification to the user
+      const subRecord = await PushSubscription.findOne({ user: order.user });
+      if (subRecord) {
+        const payload = JSON.stringify({
+          title: "Order Update",
+          body: `Your order status is now: ${status}`
+        });
+        try {
+          await webpush.sendNotification(subRecord.subscription, payload);
+        } catch (pushErr) {
+          console.error("Push Notification Error:", pushErr);
+        }
+      }
     }
     res.redirect("/admin/orders");
   } catch (err) {
@@ -173,6 +210,7 @@ exports.updatePrice = async (req, res) => {
 exports.addMenuItem = async (req, res) => {
   try {
     const { name, category, price } = req.body;
+    
     // Create product with default image or placeholder if needed
     await Product.create({ 
       name, 

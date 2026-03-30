@@ -26,11 +26,26 @@
             <% if (item.product) { %>
               <% const itemTotal = item.product.price * item.quantity; %>
               <% total += itemTotal; %>
-              <tr class="hover:bg-gray-50">
-                <td class="px-6 py-4 font-medium text-gray-800"><%= item.product.name %></td>
+            <tr id="row-<%= item.product._id %>" class="hover:bg-gray-50 row-item" data-price="<%= item.product.price %>">
+                <td class="px-6 py-4 font-medium text-gray-800">
+                  <div class="flex items-center gap-3">
+                    <img src="<%= item.product.image || '/images/default-food.png' %>" alt="<%= item.product.name %>" class="w-12 h-12 object-cover rounded shadow-sm">
+                    <div class="flex flex-col">
+                      <span class="flex items-center gap-2">
+                        <%= item.product.name %>
+                      </span>
+                    </div>
+                  </div>
+                </td>
                 <td class="px-6 py-4 text-gray-600">₹<%= item.product.price %></td>
-                <td class="px-6 py-4 text-gray-600"><%= item.quantity %></td>
-                <td class="px-6 py-4 font-bold text-indigo-600">₹<%= itemTotal %></td>
+                <td class="px-6 py-4 text-gray-600">
+                  <div class="flex items-center gap-2">
+                      <button class="decrease-qty px-2 py-1 border border-gray-300 rounded hover:bg-gray-100" data-product-id="<%= item.product._id %>">-</button>
+                      <input type="number" class="qty-input w-14 text-center border-gray-300 rounded" value="<%= item.quantity %>" min="1" data-product-id="<%= item.product._id %>">
+                      <button class="increase-qty px-2 py-1 border border-gray-300 rounded hover:bg-gray-100" data-product-id="<%= item.product._id %>">+</button>
+                  </div>
+                </td>
+                <td class="px-6 py-4 font-bold text-indigo-600 item-total">₹<%= itemTotal %></td>
                 <td class="px-6 py-4">
                   <button onclick="removeItem('<%= item.product._id %>')" class="text-red-500 hover:text-red-700 text-sm font-medium flex items-center gap-1">
                     <i data-lucide="trash-2" class="w-4 h-4"></i> Remove
@@ -45,7 +60,7 @@
 
     <div class="flex justify-end items-center gap-6">
       <div class="text-xl font-bold text-gray-800">
-        Total: <span class="text-indigo-600">₹<%= total %></span>
+        Total: <span id="grand-total" class="text-indigo-600">₹<%= total %></span>
       </div>
       <button onclick="checkout()" class="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 flex items-center gap-2">
         <i data-lucide="check-circle" class="w-5 h-5"></i>
@@ -57,6 +72,83 @@
 </div>
 
 <script>
+  // Add event listeners once the DOM is fully loaded
+  document.addEventListener('DOMContentLoaded', () => {
+    // Handle + and - Button Clicks
+    document.querySelectorAll('.increase-qty, .decrease-qty').forEach(button => {
+      button.addEventListener('click', function() {
+        const productId = this.getAttribute('data-product-id');
+        const action = this.classList.contains('increase-qty') ? 'increase' : 'decrease';
+        updateCartQuantity(productId, action);
+      });
+    });
+
+    // Handle Manual Typing into the Quantity Input
+    document.querySelectorAll('.qty-input').forEach(input => {
+      input.addEventListener('change', function() {
+        const productId = this.getAttribute('data-product-id');
+        const quantity = this.value;
+        updateCartQuantity(productId, 'set', quantity);
+      });
+    });
+  });
+
+  // The function that sends updates to the backend
+  async function updateCartQuantity(productId, action, quantity = null) {
+    try {
+      const payload = { productId, action };
+      if (quantity !== null) {
+        payload.quantity = quantity;
+      }
+
+      const response = await fetch('/cart/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        // Dynamic DOM Update (No Reload)
+        const row = document.getElementById(`row-${productId}`);
+        if (data.newQuantity === 0) {
+          if (row) row.remove();
+          checkEmptyCart();
+        } else {
+          if (row) {
+            row.querySelector('.qty-input').value = data.newQuantity;
+            const price = parseFloat(row.dataset.price);
+            row.querySelector('.item-total').innerText = `₹${price * data.newQuantity}`;
+          }
+        }
+        recalculateGrandTotal();
+      } else {
+        alert(data.message || 'Error updating cart');
+        window.location.reload(); // Reload to revert optimistic UI change
+      }
+    } catch (err) {
+      console.error('Fetch error:', err);
+      alert('Network error while updating cart');
+    }
+  }
+
+  function recalculateGrandTotal() {
+    let newTotal = 0;
+    document.querySelectorAll('.row-item').forEach(row => {
+      const price = parseFloat(row.dataset.price);
+      const qty = parseInt(row.querySelector('.qty-input').value, 10);
+      newTotal += (price * qty);
+    });
+    const grandTotalEl = document.getElementById('grand-total');
+    if (grandTotalEl) grandTotalEl.innerText = `₹${newTotal}`;
+  }
+
+  function checkEmptyCart() {
+    if (document.querySelectorAll('.row-item').length === 0) {
+      window.location.reload(); // Reloads once just to render the "Empty Cart" text UI
+    }
+  }
+
   async function removeItem(productId) {
     const res = await fetch('/cart/remove', {
       method: 'POST',
@@ -65,7 +157,10 @@
     });
     const data = await res.json();
     if (data.success) {
-      window.location.reload(); // Reload to update the view
+      const row = document.getElementById(`row-${productId}`);
+      if(row) row.remove();
+      recalculateGrandTotal();
+      checkEmptyCart();
     } else {
       alert("Error removing item");
     }

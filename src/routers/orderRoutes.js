@@ -17,6 +17,7 @@ router.get("/cart", authMiddleware, requireAuth, orderController.getCart);
 router.get("/orders", authMiddleware, requireAuth, orderController.getUserOrders);
 router.post("/cart/add", authMiddleware, requireAuth, orderController.addToCart);
 router.post("/cart/remove", authMiddleware, requireAuth, orderController.removeFromCart);
+router.post("/cart/update", authMiddleware, requireAuth, orderController.updateCartItemQuantity);
 router.post("/order/checkout", authMiddleware, requireAuth, orderController.placeOrder);
 router.post("/orders/cancel/:id", authMiddleware, requireAuth, orderController.cancelOrder);
 

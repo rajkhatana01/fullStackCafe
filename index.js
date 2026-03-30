@@ -12,8 +12,18 @@ const orderRoutes = require("./src/routers/orderRoutes");
 const authMiddleware = require("./src/middleware/optionalAuth");
 const Product = require("./src/models/Product"); // Import Product model
 const Cart = require("./src/models/Cart"); // Import Cart model
+const webpush = require("web-push"); // Import web-push
 
 const app = express();
+
+// Configure Web Push with VAPID keys from .env
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    "mailto:admin@fullstackcafe.com", // Push services require a contact email
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+}
 
 connectDB();
 

@@ -6,7 +6,7 @@ const Cart = require("../models/Cart");
 // Add Item to Cart
 exports.addToCart = async (req, res) => {
   try {
-    const { productId } = req.body;
+    const { productId, quantity } = req.body;
     if (!productId) return res.status(400).json({ success: false, message: "Product ID required" });
     
     // Validate that the productId is a valid MongoDB ObjectId to prevent CastError crashes
@@ -15,24 +15,32 @@ exports.addToCart = async (req, res) => {
     }
     const userId = req.user.id;
 
-    const product = await Product.findById(productId);
+    // 1. Fetch product to ensure it exists and is in stock
+    const product = await Product.findById(productId, "isOutOfStock").lean();
+
     if (!product) return res.status(404).json({ success: false, message: "Product not found" });
     if (product.isOutOfStock) return res.status(400).json({ success: false, message: "Product is out of stock" });
 
-    let cart = await Cart.findOne({ user: userId });
+    // Safely parse quantity to prevent NaN errors, fallback to 1
+    const addQty = quantity ? parseInt(quantity, 10) : 1;
+    const finalAddQty = (isNaN(addQty) || addQty < 1) ? 1 : addQty;
+
+    // 2. Atomic Database Operation: Try to increment existing item quantity safely
+    let cart = await Cart.findOneAndUpdate(
+      { user: userId, "items.product": productId },
+      { $inc: { "items.$.quantity": finalAddQty } },
+      { new: true }
+    ).lean();
+
+    // 3. If item was not in cart (or cart didn't exist at all), push new item / upsert cart
     if (!cart) {
-      cart = await Cart.create({ user: userId, items: [] });
+      cart = await Cart.findOneAndUpdate(
+        { user: userId },
+        { $push: { items: { product: productId, quantity: finalAddQty } } },
+        { new: true, upsert: true }
+      ).lean();
     }
 
-    const itemIndex = cart.items.findIndex(p => p.product && p.product.toString() === productId);
-    if (itemIndex > -1) {
-      cart.items[itemIndex].quantity += 1;
-    } else {
-      cart.items.push({ product: productId, quantity: 1 });
-    }
-
-    await cart.save();
-    
     // Calculate new count
     const cartCount = cart.items.reduce((acc, item) => acc + item.quantity, 0);
     res.json({ success: true, message: "Added to cart", cartCount });
@@ -45,7 +53,7 @@ exports.addToCart = async (req, res) => {
 // Render the Cart Page
 exports.getCart = async (req, res) => {
   try {
-    let cart = await Cart.findOne({ user: req.user.id }).populate("items.product");
+    let cart = await Cart.findOne({ user: req.user.id }).populate("items.product", "name price image");
 
     // Cleanup: Remove items where the product has been deleted from DB
     if (cart && cart.items.length > 0) {
@@ -67,7 +75,7 @@ exports.getCart = async (req, res) => {
 exports.placeOrder = async (req, res) => {
   try {
     // Fetch cart from DB instead of req.body
-    const cart = await Cart.findOne({ user: req.user.id }).populate("items.product");
+    const cart = await Cart.findOne({ user: req.user.id }).populate("items.product", "price").lean();
 
     if (!cart || cart.items.length === 0) {
       return res.status(400).json({ success: false, message: "Cart is empty" });
@@ -114,6 +122,11 @@ exports.placeOrder = async (req, res) => {
 exports.removeFromCart = async (req, res) => {
   try {
     const { productId } = req.body;
+    if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid Product ID provided" });
+    }
     const userId = req.user.id;
 
     // Use MongoDB's atomic $pull operator to cleanly remove the item at the database level.
@@ -135,11 +148,70 @@ exports.removeFromCart = async (req, res) => {
   }
 };
 
+// Update Item Quantity in Cart
+exports.updateCartItemQuantity = async (req, res) => {
+  try {
+    const { productId, action, quantity } = req.body;
+    const userId = req.user.id;
+
+    if (!productId || (!action && quantity === undefined)) {
+      return res.status(400).json({ success: false, message: "Product ID and action or quantity required" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid Product ID format" });
+    }
+
+    // 1. Fast read to determine the current state
+    let cart = await Cart.findOne({ user: userId }).lean();
+    if (!cart) return res.status(404).json({ success: false, message: "Cart not found" });
+
+    const item = cart.items.find(p => p.product && p.product.toString() === productId);
+    if (!item) return res.status(404).json({ success: false, message: "Item not found in cart" });
+
+    // 2. Calculate the updated quantity
+    let newQuantity = item.quantity;
+    if (action === "increase") {
+      newQuantity += 1;
+    } else if (action === "decrease") {
+      newQuantity -= 1;
+    } else if (action === "set" || quantity !== undefined) {
+      const parsedQty = parseInt(quantity, 10);
+      if (!isNaN(parsedQty)) newQuantity = parsedQty;
+    }
+
+    // 3. Highly Optimized Atomic DB operations (Bypasses all Mongoose memory & validation bugs)
+    if (newQuantity <= 0 || isNaN(newQuantity)) {
+      cart = await Cart.findOneAndUpdate(
+        { user: userId },
+        { $pull: { items: { product: productId } } },
+        { new: true }
+      ).lean();
+      newQuantity = 0;
+    } else {
+      cart = await Cart.findOneAndUpdate(
+        { user: userId, "items.product": productId },
+        { $set: { "items.$.quantity": newQuantity } },
+        { new: true }
+      ).lean();
+    }
+
+    const cartCount = cart ? cart.items.reduce((acc, curr) => acc + curr.quantity, 0) : 0;
+    return res.json({ success: true, message: "Cart updated", cartCount, newQuantity });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
 // Get User Orders
 exports.getUserOrders = async (req, res) => {
   try {
     const orders = await Order.find({ user: req.user.id })
-      .populate("items.product")
+      .populate("items.product", "name image price")
+      .lean()
       .sort({ createdAt: -1 });
     res.render("orders", { user: req.user, orders, title: "My Orders" });
   } catch (err) {
@@ -152,6 +224,11 @@ exports.getUserOrders = async (req, res) => {
 exports.cancelOrder = async (req, res) => {
   try {
     const orderId = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid Order ID format" });
+    }
     // Find order that belongs to this user
     const order = await Order.findOne({ _id: orderId, user: req.user.id });
 
