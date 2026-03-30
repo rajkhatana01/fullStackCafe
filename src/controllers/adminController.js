@@ -48,8 +48,8 @@ exports.getDashboard = async (req, res) => {
 // Render Live Kitchen Queue
 exports.getOrders = async (req, res) => {
   try {
-    // Fetch active orders (not completed), sorted by pickup time
-    const orders = await Order.find({ status: { $ne: "Completed" } })
+    // Fetch active orders (exclude completed and cancelled), sorted by pickup time
+    const orders = await Order.find({ status: { $nin: ["Completed", "Cancelled"] } })
       .populate("items.product", "name price")
       .sort({ createdAt: 1 }) // Oldest orders first
       .lean();

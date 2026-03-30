@@ -75,7 +75,7 @@ exports.getCart = async (req, res) => {
 exports.placeOrder = async (req, res) => {
   try {
     // Fetch cart from DB instead of req.body
-    const cart = await Cart.findOne({ user: req.user.id }).populate("items.product", "price").lean();
+    const cart = await Cart.findOne({ user: req.user.id }).populate("items.product", "name price isOutOfStock").lean();
 
     if (!cart || cart.items.length === 0) {
       return res.status(400).json({ success: false, message: "Cart is empty" });
@@ -83,11 +83,16 @@ exports.placeOrder = async (req, res) => {
 
     let totalAmount = 0;
     const orderItems = [];
+    let outOfStockItem = null;
 
     // Build Order Items from Cart
-    cart.items.forEach(cartItem => {
+    for (const cartItem of cart.items) {
       const product = cartItem.product;
       if (product) {
+        if (product.isOutOfStock) {
+          outOfStockItem = product.name;
+          break;
+        }
         totalAmount += product.price * cartItem.quantity;
         orderItems.push({
           product: product._id,
@@ -95,7 +100,11 @@ exports.placeOrder = async (req, res) => {
           price: product.price
         });
       }
-    });
+    }
+
+    if (outOfStockItem) {
+      return res.status(400).json({ success: false, message: `Cannot place order. '${outOfStockItem}' is currently out of stock.` });
+    }
 
     if (orderItems.length === 0) {
       return res.status(400).json({ success: false, message: "No valid products in cart" });
